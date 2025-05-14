@@ -1,0 +1,29 @@
+Для начала установи frr
+
+apt install frr (Debian/ubuntu)
+  или 
+dnf install -y frr (RedOS, Fedora, CentOS и т.д.)
+
+В конфигурационном файле /etc/frr/daemons ищем строку ospfd и превращаем ее в ospfd = yes
+
+Включаем и добавляем в автозагрузку службу FRR
+systemctl enable --now frr
+
+Далее исполняем вот эту комманду: vtysh
+Она позволяет войти в терминал, что аналогичен cisco
+В нем пишем следующее 
+configure terminal
+router osp
+passive-interface default
+
+Объявляем все сети кроме внешних соответствующенго RTR
+К примеру:
+network 192.168.1.0/24 area 0
+network 192.168.2.0/24 area 0
+network 192.168.3.0/24 area 0
+
+Далее пишем
+area 0 authentication
+exit
+
+Далее надо проверять...
