@@ -20,8 +20,15 @@ REMOTE_TUNNEL_IP=$4
 DEST_NETWORK=$5
 TUNNEL_IF="gre1"
 CONFIG_FILE="/etc/systemd/network/90-gre-tunnel.network"
+NFTABLES_CONF="/etc/nftables.conf"
 
-# 1. Создаем systemd network config
+# 1. Установка nftables при необходимости
+if ! command -v nft &> /dev/null; then
+    echo "Installing nftables..."
+    apt-get update && apt-get install -y nftables
+fi
+
+# 2. Создаем systemd network config
 echo "Creating persistent network configuration..."
 cat > $CONFIG_FILE <<EOF
 [Match]
@@ -42,8 +49,34 @@ Mode=gre
 TTL=255
 EOF
 
+
+# 3. Настройка nftables
+echo "Configuring nftables rules..."
+
+# Создаем базовую конфигурацию если файла нет
+if [ ! -f $NFTABLES_CONF ]; then
+    echo "flush ruleset" > $NFTABLES_CONF
+fi
+
+# Добавляем правила для GRE
+nft add table ip gre_filter
+nft add chain ip gre_filter input { type filter hook input priority 0 \; }
+nft add chain ip gre_filter forward { type filter hook forward priority 0 \; }
+
+nft add rule ip gre_filter input ip protocol gre counter accept
+nft add rule ip gre_filter forward iifname "$TUNNEL_IF" counter accept
+
+# Сохраняем правила
+nft list ruleset > $NFTABLES_CONF
+
+# Включаем и запускаем службу
+systemctl enable --now nftables
+
+# 5. Перезапускаем сеть
 echo "Restarting network services..."
 systemctl restart systemd-networkd
 
-echo "GRE tunnel configured to survive reboots!"
-echo "Check status: networkctl list $TUNNEL_IF"
+echo "GRE tunnel configured with nftables!"
+echo "Check status:"
+echo "1. Tunnel: networkctl list $TUNNEL_IF"
+echo "2. Firewall: nft list ruleset"
