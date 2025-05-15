@@ -1,0 +1,109 @@
+Настройка NAT маскарада (nftables)
+
+Добавляем в конце:
+
+table ip nat{
+	chain postrouting {
+		type nat hook postrouting priority 0;
+		ip saddr <ip-адресс сети внутренней> oifname <интерфейс смотрящий на isp> counter masquerade;
+	}
+}
+
+Для сохранения пишем:
+nft -f /etc/nftables.conf
+Если ошибок нет то и слава богу.
+
+Можно посмотреть список правил и счетчики при помощи команды:
+nft list ruleset
+
+Так же добавляем nftables в автозагрузку
+systemctl enable --now nftables
+
+Проверка
+Делаем traceroute -n с устройства из одной локальной сети в устройство в другой локальной сети. При этом сети которые подключены к ISP (кроме основных) должны быть не доступны. 
+
+Настройка GRE тунеля
+Берем два роутера, создаем на них файл /etc/gre.up
+
+RTR первый 
+#!/bin/bash
+ip tunnel add tun0 mode gre local 4.4.4.100 remote 5.5.5.100
+ip addr add 10.5.5.1/30 dev tun0
+ip link set up tun0
+ip route add <локальный адрес подсети в которой этот роутер к примеру 192.168.1.0/24> via 10.5.5.2
+
+RTR второй 
+#!/bin/bash
+ip tunnel add tun0 mode gre local 5.5.5.100 remote 4.4.4.100
+ip addr add 10.5.5.2/30 dev tun0
+ip link set up tun0
+ip route add <локальный адрес подсети в которой этот роутер к примеру 192.168.1.0/24> via 10.5.5.1
+
+Далее прописываем на обоих серверах
+chmod +x /etc/gre.up
+
+Потом запускаем их командой
+/etc/gre.up
+Если нет вывода то и слава богу все хорошо иначе перепроверяйте написание
+
+Далее добавим его в автозагрузку
+Открываем файл /etc/crontab и в конце добавляем:
+@reboot root /etc/gre.up
+
+Для проверки можно сделать пинг 10.5.5.1 или 10.5.5.2.
+
+Для защиты соединения (если этого требуется) используем strongswan
+apt install strongswan или yum install strongswan или dnf install strongswan В зависимости от системы 
+
+После успешной установки на обоих роутерах открываем  /etc/ipsec.conf и пишем следующее 
+
+RTR первый 
+
+conn vpn
+	auto=start
+	type=tunnel
+	authby=secret
+	left=4.4.4.100
+	right=5.5.5.100
+	leftsubnet=0.0.0.0/0
+	rightsubnet=0.0.0.0/0
+	leftprotoport=gre
+	rightprotoport=gre
+	ike=aes128-sha256-modp3072
+	esp=aes128-sha256
+
+RTR второй 
+
+conn vpn
+	auto=start
+	type=tunnel
+	authby=secret
+	left=5.5.5.100
+	right=4.4.4.100
+	leftsubnet=0.0.0.0/0
+	rightsubnet=0.0.0.0/0
+	leftprotoport=gre
+	rightprotoport=gre
+	ike=aes128-sha256-modp3072
+	esp=aes128-sha256
+
+Далее в файле /etc/ipsec.secrets на обоих роутерах пишем (он одинаковый на обоих ВМ)
+!!!СМОТРЕТЬ ЗАДАНИЕ НУЖНО ВЕРОЯТНО ПАРОЛЬ В КОВЫЧКАХ ОТЛИЧАЕТЬСЯ!!!
+ 
+4.4.4.100 5.5.5.100 : PSK "P@ssw0rd"
+
+
+Далее добавляем в автозагрузку 
+systemctl enable --now ipsec
+
+И проверяем (после каждого изменения этих двух файлов надо делать это)
+ 
+IPsec update
+IPsec restart
+IPsec status
+
+В выводе должны быть слова ESTABLISHED и после него там IP адресса 5.5.5.100 … 4.4.4.100 или наоборот
+
+Если вывод пустой и там нет таких слов то
+1) после  IPsec restart следует подождать пару минут
+2) проверить написание
