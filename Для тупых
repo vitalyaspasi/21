@@ -1,3 +1,5 @@
+Тут первые 6 заданий!
+
 Чтобы задать имя хоста в системе, вводим команду
 
 hostnamectl set-hostname <NAME>; exec bash
