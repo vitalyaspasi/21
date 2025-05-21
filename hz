@@ -1,0 +1,27 @@
+Чтобы задать имя хоста в системе, вводим команду
+
+hostnamectl set-hostname <NAME>; exec bash
+
+К примеру
+hostnamectl set-hostname isp.au-team.irpo; exec bash
+
+Для расчета IP и масок
+https://www.calcip.com
+https://ip-calculator.ru
+https://www.aelius.com/njh/subnet_sheet.html
+
+Настройка Ip адрессации через nmtui для Линукс. Для настройки посчитать маску, а адресы из таблицы.
+
+
+Настройка пересылки пакетов между интерфейсами 
+Для Линукса
+sysctl net.ipv4.ip_forward=1 >> /etc/sysctl.conf; sysctl -p
+Для Ecorouter
+enable
+configure terminal
+ip forwarding  # или "ip route" в некоторых версиях
+exit
+write memory  # сохранение конфигурации
+ЕСЛИ ЭТО НЕ ПОМОГЛО ТО ПОПРОБУЙТЕ
+sysctl -w net.ipv4.ip_forward=1
+Инчае гуглить
