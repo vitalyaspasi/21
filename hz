@@ -11,17 +11,102 @@ https://ip-calculator.ru
 https://www.aelius.com/njh/subnet_sheet.html
 
 Настройка Ip адрессации через nmtui для Линукс. Для настройки посчитать маску, а адресы из таблицы.
-
+Интерфейс в HQ от RTR будет один, его цепляем на HQ-SRV и HQ-CLI, айпишники им не выдаем пока что.
 
 Настройка пересылки пакетов между интерфейсами 
-Для Линукса
 sysctl net.ipv4.ip_forward=1 >> /etc/sysctl.conf; sysctl -p
-Для Ecorouter
-enable
-configure terminal
-ip forwarding  # или "ip route" в некоторых версиях
-exit
-write memory  # сохранение конфигурации
-ЕСЛИ ЭТО НЕ ПОМОГЛО ТО ПОПРОБУЙТЕ
-sysctl -w net.ipv4.ip_forward=1
-Инчае гуглить
+
+Насройка ISP
+Настройка NAT маскарада (nftables)
+
+Добавляем в конце:
+
+table ip nat{
+	chain postrouting {
+		type nat hook postrouting priority 0;
+		ip saddr <ip-адресс сети внутренней> oifname <интерфейс смотрящий на isp> counter masquerade;
+	}
+}
+
+Для сохранения пишем:
+nft -f /etc/nftables.conf
+Если ошибок нет то и слава богу.
+
+Можно посмотреть список правил и счетчики при помощи команды:
+nft list ruleset
+
+Так же добавляем nftables в автозагрузку
+systemctl enable --now nftables
+
+Проверка
+Делаем traceroute -n с устройства из одной локальной сети в устройство в другой локальной сети. При этом сети которые подключены к ISP (кроме основных) должны быть не доступны. 
+
+Создание локальных учеток
+На обоих SRV пишем
+useradd -u 1010 sshuser
+password sshuser (Вводим пароль P@ssw0rd)
+
+Открываем /etc/sudoers
+nano /etc/sudoers (vim /etc/sudoers)
+и добавляем 
+sshuser ALL=(ALL) NOPASSWD: ALL
+
+На обоих RTR пишем
+useradd net_admin
+passwd net_admin (Вводим пароль P@$$w0rd)
+
+Открываем /etc/sudoers
+nano /etc/sudoers (vim /etc/sudoers)
+и добавляем 
+net_admin ALL=(ALL) NOPASSWD: ALL
+
+
+Настройка HQ-RTR в сторону HQ офиса виртуальный коммутатор
+Значит в nmtui делаем следующее
+Интерфейс на HQ-SRV - VLAN100
+Интерфейс на HQ-CLI - VLAN200
+Интерфейс управления - VLAN999 
+
+Выбираем нужный интерфейс, выбираем тип соединения VLAN, выдаем IP адресс из таблицы в начале и жмем ОК
+
+Настройка безопасности HQ-SRV и BR-SRV
+Создаем файл по пути /etc/ssh/sshd_config.d/ (nano /etc/ssh/sshd_config.d/)
+Пишем в него
+Port 2024  (ПОМЕНЯЙТЕ ПОРТ 2024 ЕСЛИ В ЗАДАНИЕ ДРУГОЙ)
+AllowUsers net_admin
+Banner /etc/ssh/baner.txt
+MaxAuthTries 2  (ПОМЕНЯЙТЕ ЧИСЛО ЕСЛИ В ЗАДАНИЕ ДРУГОЙ, В СТРОКЕ ОГРАНИЧЬТЕ КОЛИЕСТВО ПОЛЬЗОВАТЕЛЕЙ ДО И ТАМ ЧИСЛО)
+
+Потом пропишем следующие команды 
+echo "Authorized access only" > /etc/ssh/baner.txt
+semanage port -m -t ssh_port_t -p tcp 2024 (ПОМЕНЯЙТЕ ПОРТ 2024 ЕСЛИ В ЗАДАНИЕ ДРУГОЙ)
+sy6stemctl restart sshd
+
+На BR-SRV все аналогично!!!
+
+Потом подключаемя ssh net_admin@Адресс сервер -p порт который выше указывали
+и вводим пароль P@$$word
+
+Создание IP тунеля между HQ и BR
+На HQ-RTR в nmtui добавляем новое подключение и выбираем IP-тунель
+Пишем имя профиля и устройство tun10
+В разделе IP-тунель выбираем IPIP режим
+Выбираем интерфейс который смотрит на ISP
+пишем локальный IP это адрес который смотрит на ISP на этом устройстве т.е на HQ-RTR!
+Удаленный IP это адресс который смотрит на ISP на BR-RTR!
+В конфигурации IPv4 в Адрессе пишем 192.168.5.2/30 (Если айпишник такие будут иначе я хз сори бб лох)!
+
+На BR-RTR в nmtui добавляем новое подключение и выбираем IP-тунель
+Пишем имя профиля и устройство tun10
+В разделе IP-тунель выбираем IPIP режим
+Выбираем интерфейс который смотрит на ISP
+пишем локальный IP это адрес который смотрит на ISP на этом устройстве т.е на BR-RTR!!
+Удаленный IP это адресс который смотрит на ISP на HQ-RTR!!
+В конфигурации IPv4 в Адрессе пишем 192.168.5.1/30 (Если айпишник такие будут иначе я хз сори бб лох)!!
+
+И на обоих RTR пропишем 
+nmcli connection modify tun10 ip-tunnel.ttl 64
+
+Проверим значит ip -br -a
+Так должен быть tun10 
+и потом ping 192.168.5.1 или ping 192.168.5.2
