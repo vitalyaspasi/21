@@ -14,7 +14,7 @@ https://www.aelius.com/njh/subnet_sheet.html
 
 Настройка Ip адрессации через nmtui для Линукс. Для настройки посчитать маску, а адресы из таблицы.
 
-Настройка пересылки пакетов между интерфейсами 
+Настройка пересылки пакетов между интерфейсами на HQ-RTR BR-RTR ISP И HQ-SW
 sysctl net.ipv4.ip_forward=1 >> /etc/sysctl.conf; sysctl -p
 
 Насройка ISP
