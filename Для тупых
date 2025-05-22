@@ -13,7 +13,6 @@ https://ip-calculator.ru
 https://www.aelius.com/njh/subnet_sheet.html
 
 Настройка Ip адрессации через nmtui для Линукс. Для настройки посчитать маску, а адресы из таблицы.
-Интерфейс в HQ от RTR будет один, его цепляем на HQ-SRV и HQ-CLI, айпишники им не выдаем пока что.
 
 Настройка пересылки пакетов между интерфейсами 
 sysctl net.ipv4.ip_forward=1 >> /etc/sysctl.conf; sysctl -p
@@ -63,13 +62,7 @@ nano /etc/sudoers (vim /etc/sudoers)
 net_admin ALL=(ALL) NOPASSWD: ALL
 
 
-Настройка HQ-RTR в сторону HQ офиса виртуальный коммутатор
-Значит в nmtui делаем следующее
-Интерфейс на HQ-SRV - VLAN100
-Интерфейс на HQ-CLI - VLAN200
-Интерфейс управления - VLAN999 
-
-Выбираем нужный интерфейс, выбираем тип соединения VLAN, выдаем IP адресс из таблицы в начале и жмем ОК
+!!!НАСТРОЙКУ ВЛАН СМ В СомнительныйВлан!!!
 
 Настройка безопасности HQ-SRV и BR-SRV
 Создаем файл по пути /etc/ssh/sshd_config.d/ (nano /etc/ssh/sshd_config.d/)
